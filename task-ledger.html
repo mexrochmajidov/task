@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Ledger — ops board for small teams</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper: #E4DED0;
+    --paper-card: #FBF8F2;
+    --ink: #23282B;
+    --ink-soft: #6B7168;
+    --line: #CBC3AC;
+    --stamp: #A8402F;
+    --teal: #2F6E63;
+    --amber: #B9822C;
+    --navy: #34495A;
+    --olive: #6B7A3A;
+    --plum: #6E4B5E;
+    --radius: 3px;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      repeating-linear-gradient(transparent, transparent 27px, rgba(35,40,43,0.035) 28px),
+      var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+
+  .sheet{
+    max-width:880px;
+    margin:0 auto;
+    background:var(--paper-card);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(35,40,43,0.06), 0 12px 30px -18px rgba(35,40,43,0.35);
+  }
+
+  header.masthead{
+    padding:28px 32px 22px;
+    border-bottom:3px double var(--ink);
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    font-size:38px;
+    margin:0 0 4px;
+    letter-spacing:-.01em;
+  }
+  .tagline{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14.5px;
+  }
+  .ledger-no{
+    position:absolute;
+    top:28px;
+    right:32px;
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+  .ledger-no strong{
+    display:block;
+    font-size:22px;
+    color:var(--ink);
+    font-weight:500;
+  }
+
+  .toolbar{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    padding:18px 32px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:'IBM Plex Sans', sans-serif;
+    cursor:pointer;
+    border:none;
+    border-radius:var(--radius);
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--paper-card);
+    padding:10px 18px;
+    font-size:14px;
+    font-weight:500;
+    letter-spacing:.01em;
+    transition:background .15s ease;
+  }
+  .btn-primary:hover{background:#3a4247;}
+  .btn-primary:focus-visible{outline:2px solid var(--stamp); outline-offset:2px;}
+
+  .search{
+    flex:1;
+    min-width:160px;
+    position:relative;
+  }
+  .search input{
+    width:100%;
+    padding:10px 12px 10px 32px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--paper-card);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .search input:focus-visible{outline:2px solid var(--stamp); outline-offset:1px;}
+  .search::before{
+    content:"⌕";
+    position:absolute;
+    left:11px; top:50%;
+    transform:translateY(-50%);
+    color:var(--ink-soft);
+    font-size:15px;
+  }
+
+  .stat-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .stat-badge strong{color:var(--ink); font-weight:600;}
+
+  .filters{
+    display:flex;
+    gap:8px;
+    padding:14px 32px;
+    flex-wrap:wrap;
+    border-bottom:1px solid var(--line);
+    background:rgba(35,40,43,0.02);
+  }
+  .chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    padding:6px 12px;
+    border:1px solid var(--line);
+    border-radius:20px;
+    background:var(--paper-card);
+    color:var(--ink-soft);
+    letter-spacing:.02em;
+  }
+  .chip:focus-visible{outline:2px solid var(--stamp); outline-offset:2px;}
+  .chip.active{
+    background:var(--ink);
+    color:var(--paper-card);
+    border-color:var(--ink);
+  }
+  .chip .dot{
+    display:inline-block;
+    width:7px;height:7px;
+    border-radius:50%;
+    margin-right:6px;
+    vertical-align:middle;
+  }
+
+  /* ---- new entry form ---- */
+  .entry-form{
+    padding:0 32px;
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .28s ease, padding .28s ease;
+    border-bottom:0 solid var(--line);
+  }
+  .entry-form.open{
+    max-height:420px;
+    padding:22px 32px;
+    border-bottom:1px solid var(--line);
+  }
+  .form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px 16px;
+  }
+  .form-grid .full{grid-column:1/-1;}
+  label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+  }
+  input[type=text], input[type=date], select, textarea{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--paper-card);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+  }
+  input:focus-visible, select:focus-visible, textarea:focus-visible{
+    outline:2px solid var(--stamp); outline-offset:1px;
+  }
+  textarea{resize:vertical; min-height:44px;}
+  .swatches{display:flex; gap:8px; padding-top:2px;}
+  .swatch{
+    width:22px;height:22px;
+    border-radius:50%;
+    border:2px solid transparent;
+    cursor:pointer;
+  }
+  .swatch.selected{border-color:var(--ink);}
+  .form-actions{
+    grid-column:1/-1;
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+    margin-top:4px;
+  }
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--line) !important;
+    color:var(--ink-soft);
+    padding:9px 16px;
+    font-size:13.5px;
+  }
+  .new-cat-row{display:flex; gap:8px; align-items:center;}
+  .new-cat-row input{flex:1;}
+
+  /* ---- list ---- */
+  .list{padding:6px 0 10px;}
+  .row{
+    display:grid;
+    grid-template-columns:44px 26px 1fr auto auto 30px;
+    align-items:start;
+    gap:14px;
+    padding:14px 32px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .row:last-child{border-bottom:none;}
+  .row .no{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    padding-top:3px;
+  }
+
+  .stamp-btn{
+    width:24px; height:24px;
+    border:2px solid var(--ink);
+    border-radius:50%;
+    background:transparent;
+    padding:0;
+    position:relative;
+    flex-shrink:0;
+    margin-top:1px;
+  }
+  .stamp-btn:focus-visible{outline:2px solid var(--stamp); outline-offset:2px;}
+  .row.done .stamp-btn{
+    border-color:var(--stamp);
+    background:var(--stamp);
+  }
+  .row.done .stamp-btn::after{
+    content:"✓";
+    color:var(--paper-card);
+    font-size:13px;
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-52%);
+  }
+
+  .task-main .title{
+    font-size:15px;
+    font-weight:500;
+    margin:0 0 3px;
+    line-height:1.35;
+  }
+  .row.done .task-main .title{
+    color:var(--ink-soft);
+    text-decoration:line-through;
+    text-decoration-color:var(--line);
+  }
+  .task-main .notes{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0;
+    line-height:1.4;
+  }
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 8px 3px 6px;
+    border-radius:20px;
+    margin-top:6px;
+    color:#fff;
+  }
+
+  .priority{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding-top:4px;
+    white-space:nowrap;
+  }
+  .priority.high{color:var(--stamp); font-weight:500;}
+  .priority.med{color:var(--amber);}
+  .priority.low{color:var(--ink-soft);}
+
+  .due{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+    padding-top:4px;
+    text-align:right;
+  }
+  .due.overdue{color:var(--stamp); font-weight:500;}
+
+  .del-btn{
+    background:transparent;
+    color:var(--ink-soft);
+    font-size:16px;
+    line-height:1;
+    padding:2px 4px;
+    border-radius:var(--radius);
+  }
+  .del-btn:hover{color:var(--stamp);}
+  .del-btn:focus-visible{outline:2px solid var(--stamp); outline-offset:2px;}
+
+  /* stamp mark animation */
+  .stamp-mark{
+    position:absolute;
+    right:120px;
+    top:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:.12em;
+    color:var(--stamp);
+    border:2.5px solid var(--stamp);
+    border-radius:4px;
+    padding:1px 8px;
+    transform:rotate(-9deg) scale(1.6);
+    opacity:0;
+    mix-blend-mode:multiply;
+    pointer-events:none;
+  }
+  .row.stamping .stamp-mark{
+    animation:stampdown .38s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  @keyframes stampdown{
+    0%{opacity:0; transform:rotate(-9deg) scale(2.2);}
+    55%{opacity:.9; transform:rotate(-9deg) scale(.92);}
+    100%{opacity:.85; transform:rotate(-9deg) scale(1);}
+  }
+
+  .empty{
+    padding:60px 32px 70px;
+    text-align:center;
+    color:var(--ink-soft);
+  }
+  .empty p{
+    font-family:'Zilla Slab', serif;
+    font-size:17px;
+    margin:0;
+  }
+
+  footer.foot{
+    padding:14px 32px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    letter-spacing:.04em;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  @media (max-width:640px){
+    body{padding:16px 10px 60px;}
+    header.masthead{padding:22px 18px 18px;}
+    h1{font-size:29px;}
+    .ledger-no{position:static; text-align:left; margin-top:10px;}
+    .toolbar, .filters{padding:14px 18px;}
+    .form-grid{grid-template-columns:1fr;}
+    .entry-form{padding:0 18px;}
+    .entry-form.open{padding:20px 18px;}
+    .row{
+      grid-template-columns:24px 1fr 30px;
+      grid-template-areas:
+        "stamp main del"
+        "no main del"
+        ". prio ."
+        ". due .";
+      padding:14px 18px;
+    }
+    .row .no{display:none;}
+    .stamp-btn{grid-area:stamp;}
+    .task-main{grid-area:main;}
+    .priority{grid-area:prio;}
+    .due{grid-area:due; text-align:left;}
+    .del-btn{grid-area:del;}
+    .stamp-mark{right:16px; top:auto; bottom:8px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <header class="masthead">
+    <p class="eyebrow">Ops board · v1</p>
+    <h1>Task Ledger</h1>
+    <p class="tagline">One binder for everything the team owes this week.</p>
+    <div class="ledger-no">
+      Open items
+      <strong id="statCount">0/0</strong>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn-primary" id="newEntryBtn">+ New entry</button>
+    <div class="search">
+      <input type="text" id="searchInput" placeholder="Search entries…" aria-label="Search tasks">
+    </div>
+    <span class="stat-badge" id="toolbarStat"></span>
+  </div>
+
+  <div class="entry-form" id="entryForm">
+    <div class="form-grid">
+      <div class="full">
+        <label for="titleInput">Task</label>
+        <input type="text" id="titleInput" placeholder="e.g. Send investor update">
+      </div>
+      <div>
+        <label for="categorySelect">Category</label>
+        <select id="categorySelect"></select>
+      </div>
+      <div>
+        <label for="prioritySelect">Priority</label>
+        <select id="prioritySelect">
+          <option value="low">Low</option>
+          <option value="med" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <div>
+        <label for="dueInput">Due date</label>
+        <input type="date" id="dueInput">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <div class="new-cat-row">
+          <input type="text" id="newCatName" placeholder="New category name">
+          <div class="swatches" id="swatchPicker"></div>
+        </div>
+      </div>
+      <div class="full">
+        <label for="notesInput">Notes (optional)</label>
+        <textarea id="notesInput" placeholder="Context, links, who's involved…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="button" class="btn-primary" id="saveBtn">Log entry</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters" id="filterBar"></div>
+
+  <div class="list" id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">
+    <p>No entries yet — log your first task to open the ledger.</p>
+  </div>
+
+  <footer class="foot">
+    <span>Stored locally in this browser via IndexedDB</span>
+    <span id="footCount"></span>
+  </footer>
+</div>
+
+<script>
+/* ---------------- IndexedDB layer ---------------- */
+const DB_NAME = 'task_ledger_db';
+const DB_VERSION = 1;
+let db;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e)=>{
+      const _db = e.target.result;
+      if(!_db.objectStoreNames.contains('categories')){
+        _db.createObjectStore('categories', {keyPath:'id'});
+      }
+      if(!_db.objectStoreNames.contains('tasks')){
+        const store = _db.createObjectStore('tasks', {keyPath:'id'});
+        store.createIndex('categoryId', 'categoryId');
+      }
+    };
+    req.onsuccess = (e)=>{ db = e.target.result; resolve(db); };
+    req.onerror = (e)=> reject(e.target.error);
+  });
+}
+
+function tx(storeName, mode='readonly'){
+  return db.transaction(storeName, mode).objectStore(storeName);
+}
+function getAll(storeName){
+  return new Promise((res, rej)=>{
+    const r = tx(storeName).getAll();
+    r.onsuccess = ()=>res(r.result);
+    r.onerror = ()=>rej(r.error);
+  });
+}
+function put(storeName, value){
+  return new Promise((res, rej)=>{
+    const r = tx(storeName,'readwrite').put(value);
+    r.onsuccess = ()=>res(value);
+    r.onerror = ()=>rej(r.error);
+  });
+}
+function del(storeName, id){
+  return new Promise((res, rej)=>{
+    const r = tx(storeName,'readwrite').delete(id);
+    r.onsuccess = ()=>res();
+    r.onerror = ()=>rej(r.error);
+  });
+}
+
+/* ---------------- App state ---------------- */
+const SWATCHES = ['#2F6E63','#B9822C','#A8402F','#34495A','#6B7A3A','#6E4B5E'];
+let categories = [];
+let tasks = [];
+let activeFilter = 'all'; // 'all' | 'active' | 'done' | categoryId
+let searchTerm = '';
+let selectedSwatch = SWATCHES[0];
+
+const uid = ()=> Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+async function seedIfEmpty(){
+  const cats = await getAll('categories');
+  if(cats.length === 0){
+    const defaults = [
+      {name:'General', color:'#34495A'},
+      {name:'Product', color:'#2F6E63'},
+      {name:'Marketing', color:'#6E4B5E'},
+      {name:'Finance', color:'#B9822C'},
+    ];
+    for(const c of defaults){
+      await put('categories', {id: uid(), name:c.name, color:c.color});
+    }
+  }
+}
+
+async function loadAll(){
+  categories = await getAll('categories');
+  tasks = await getAll('tasks');
+  tasks.sort((a,b)=> a.createdAt - b.createdAt);
+}
+
+/* ---------------- Rendering ---------------- */
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+function isOverdue(iso, status){
+  if(!iso || status==='done') return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(iso+'T00:00:00') < today;
+}
+function catById(id){ return categories.find(c=>c.id===id); }
+
+function renderFilters(){
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = '';
+  const base = [
+    {key:'all', label:'All'},
+    {key:'active', label:'Active'},
+    {key:'done', label:'Done'},
+  ];
+  base.forEach(f=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (activeFilter===f.key ? ' active':'');
+    chip.textContent = f.label;
+    chip.onclick = ()=>{ activeFilter = f.key; renderAll(); };
+    bar.appendChild(chip);
+  });
+  categories.forEach(c=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (activeFilter===c.id ? ' active':'');
+    chip.innerHTML = `<span class="dot" style="background:${c.color}"></span>${c.name}`;
+    chip.onclick = ()=>{ activeFilter = c.id; renderAll(); };
+    bar.appendChild(chip);
+  });
+}
+
+function renderCategorySelect(){
+  const sel = document.getElementById('categorySelect');
+  sel.innerHTML = categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function renderSwatches(){
+  const wrap = document.getElementById('swatchPicker');
+  wrap.innerHTML = '';
+  SWATCHES.forEach(color=>{
+    const s = document.createElement('button');
+    s.type='button';
+    s.className = 'swatch' + (color===selectedSwatch ? ' selected':'');
+    s.style.background = color;
+    s.setAttribute('aria-label', 'Pick color ' + color);
+    s.onclick = ()=>{ selectedSwatch = color; renderSwatches(); };
+    wrap.appendChild(s);
+  });
+}
+
+function getFiltered(){
+  let list = tasks;
+  if(activeFilter === 'active') list = list.filter(t=>t.status!=='done');
+  else if(activeFilter === 'done') list = list.filter(t=>t.status==='done');
+  else if(activeFilter !== 'all') list = list.filter(t=>t.categoryId===activeFilter);
+  if(searchTerm.trim()){
+    const q = searchTerm.trim().toLowerCase();
+    list = list.filter(t => t.title.toLowerCase().includes(q) || (t.notes||'').toLowerCase().includes(q));
+  }
+  return list;
+}
+
+function renderList(){
+  const list = document.getElementById('list');
+  const empty = document.getElementById('emptyState');
+  const filtered = getFiltered();
+  list.innerHTML = '';
+
+  if(tasks.length === 0){
+    empty.style.display = 'block';
+    empty.querySelector('p').textContent = 'No entries yet — log your first task to open the ledger.';
+  } else if(filtered.length === 0){
+    empty.style.display = 'block';
+    empty.querySelector('p').textContent = 'Nothing matches this filter.';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  filtered.forEach((t, idx)=>{
+    const cat = catById(t.categoryId);
+    const row = document.createElement('div');
+    row.className = 'row' + (t.status==='done' ? ' done':'');
+    row.dataset.id = t.id;
+
+    const overdue = isOverdue(t.dueDate, t.status);
+    row.innerHTML = `
+      <div class="no">${String(idx+1).padStart(3,'0')}</div>
+      <button class="stamp-btn" aria-label="Toggle complete"></button>
+      <div class="task-main">
+        <p class="title">${escapeHtml(t.title)}</p>
+        ${t.notes ? `<p class="notes">${escapeHtml(t.notes)}</p>` : ''}
+        ${cat ? `<span class="tag" style="background:${cat.color}">${escapeHtml(cat.name)}</span>` : ''}
+      </div>
+      <div class="priority ${t.priority}">${t.priority==='high'?'High':t.priority==='med'?'Med':'Low'}</div>
+      <div class="due ${overdue?'overdue':''}">${fmtDate(t.dueDate)}</div>
+      <button class="del-btn" aria-label="Delete task">×</button>
+      <span class="stamp-mark">DONE</span>
+    `;
+
+    row.querySelector('.stamp-btn').onclick = ()=> toggleDone(t, row);
+    row.querySelector('.del-btn').onclick = ()=> deleteTask(t.id);
+
+    list.appendChild(row);
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderStats(){
+  const total = tasks.length;
+  const open = tasks.filter(t=>t.status!=='done').length;
+  document.getElementById('statCount').textContent = `${open}/${total}`;
+  document.getElementById('toolbarStat').textContent = total ? `${open} open · ${total-open} closed` : '';
+  document.getElementById('footCount').textContent = `${total} total ${total===1?'entry':'entries'}`;
+}
+
+function renderAll(){
+  renderFilters();
+  renderList();
+  renderStats();
+}
+
+/* ---------------- Actions ---------------- */
+async function toggleDone(task, row){
+  const goingDone = task.status !== 'done';
+  task.status = goingDone ? 'done' : 'active';
+  await put('tasks', task);
+  if(goingDone){
+    row.classList.add('done','stamping');
+    setTimeout(()=> row.classList.remove('stamping'), 500);
+  }
+  renderAll();
+}
+
+async function deleteTask(id){
+  await del('tasks', id);
+  tasks = tasks.filter(t=>t.id!==id);
+  renderAll();
+}
+
+async function saveNewTask(){
+  const titleInput = document.getElementById('titleInput');
+  const title = titleInput.value.trim();
+  const newCatName = document.getElementById('newCatName').value.trim();
+
+  if(!title){
+    titleInput.focus();
+    titleInput.style.borderColor = 'var(--stamp)';
+    setTimeout(()=> titleInput.style.borderColor = '', 900);
+    return;
+  }
+
+  let categoryId = document.getElementById('categorySelect').value;
+  if(newCatName){
+    const newCat = {id: uid(), name:newCatName, color:selectedSwatch};
+    await put('categories', newCat);
+    categories.push(newCat);
+    categoryId = newCat.id;
+  }
+
+  const task = {
+    id: uid(),
+    title,
+    notes: document.getElementById('notesInput').value.trim(),
+    categoryId,
+    priority: document.getElementById('prioritySelect').value,
+    dueDate: document.getElementById('dueInput').value,
+    status: 'active',
+    createdAt: Date.now(),
+  };
+  await put('tasks', task);
+  tasks.push(task);
+
+  closeForm();
+  renderAll();
+}
+
+function openForm(){
+  document.getElementById('entryForm').classList.add('open');
+  renderCategorySelect();
+  renderSwatches();
+  document.getElementById('titleInput').focus();
+}
+function closeForm(){
+  document.getElementById('entryForm').classList.remove('open');
+  ['titleInput','notesInput','newCatName','dueInput'].forEach(id=> document.getElementById(id).value = '');
+}
+
+/* ---------------- Wire up ---------------- */
+document.getElementById('newEntryBtn').onclick = ()=>{
+  const form = document.getElementById('entryForm');
+  form.classList.contains('open') ? closeForm() : openForm();
+};
+document.getElementById('cancelBtn').onclick = closeForm;
+document.getElementById('saveBtn').onclick = saveNewTask;
+document.getElementById('searchInput').oninput = (e)=>{ searchTerm = e.target.value; renderList(); };
+
+(async function init(){
+  await openDB();
+  await seedIfEmpty();
+  await loadAll();
+  renderAll();
+})();
+</script>
+</body>
+</html>
